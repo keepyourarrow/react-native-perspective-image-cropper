@@ -44,6 +44,9 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.io.OutputStream;
+import java.io.FileOutputStream;
+import java.util.UUID;
 
 import android.util.Log;
 
@@ -106,20 +109,53 @@ public class RNCustomCropModule extends ReactContextBaseJavaModule {
     Utils.matToBitmap(doc, bitmap);
 
     ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    bitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream);
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 99, byteArrayOutputStream);
     byte[] byteArray = byteArrayOutputStream.toByteArray();
 
+    String fileName = this.saveToDirectory(byteArray, "cropped", false);
+
     WritableMap map = Arguments.createMap();
-    map.putString("image", Base64.encodeToString(byteArray, Base64.DEFAULT));
+    map.putString("image", "file://" + fileName);
     callback.invoke(null, map);
 
     m.release();
+  }
+
+  private String getFileName(String folderName, boolean saveAsCache) {
+    String fileName;
+    String folderDir = this.reactContext.getCacheDir().toString();
+
+    if(!saveAsCache) {
+      folderDir = this.reactContext.getExternalFilesDir(null).toString();
+    }
+
+    File folder = new File(folderDir + "/" + folderName);
+
+    if (!folder.exists()) {
+        boolean result = folder.mkdirs();
+    }
+
+    fileName = folderDir + "/" + folderName + "/" + UUID.randomUUID() + ".jpg";
+    return fileName;
+  }
+
+  private String saveToDirectory(byte[] byteArray, String folderName, boolean saveAsCache) {
+    String fileName = this.getFileName(folderName, saveAsCache);
+
+    try (OutputStream stream = new FileOutputStream(fileName)) {
+        stream.write(byteArray);
+    } catch(Exception e) {
+
+    }
+
+    return fileName;
   }
 
   @ReactMethod
   public void findDocument(String imageUri, Callback callback) {
     if (!imageUri.isEmpty()) {
       Mat src = Imgcodecs.imread(imageUri.replace("file://", ""));
+
       Imgproc.cvtColor(src, src, Imgproc.COLOR_BGR2RGB);
       ImageProcessor ip = new ImageProcessor();
       callback.invoke(null, ip.processPicture(src));
