@@ -31,7 +31,7 @@ import java.util.List;
 
 public class ImageProcessor {
 
-  private static final String TAG = "l33t";
+  private static final String TAG = "ImageProcessor";
   private double colorGain = 1; // contrast
   private double colorBias = 10;
 

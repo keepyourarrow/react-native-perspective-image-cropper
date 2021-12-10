@@ -13,18 +13,22 @@ import Svg, { Polygon } from 'react-native-svg';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 
+const horizontalPadding = 40;
 class CustomCrop extends Component {
     constructor(props) {
         super(props);
         this.state = {
             viewHeight:
-                Dimensions.get('window').width * (props.height / props.width),
-            viewWidth: Dimensions.get('window').width,
+               ( Dimensions.get('window').width * (props.height / props.width)),
+            viewWidth: Dimensions.get('window').width - horizontalPadding,
             height: props.height,
             width: props.width,
             image: props.initialImage,
             moving: false,
-            screenRatio: Dimensions.get('screen').height / Dimensions.get('screen').width
+            screenRatio: Dimensions.get('screen').height / Dimensions.get('screen').width,
+            imageVerticalOffset:0,
+            imageHeight: 0,
+            imageWidth: 0
         };
 
         this.state = {
@@ -130,48 +134,84 @@ class CustomCrop extends Component {
     }
 
     crop() {
+        let horizontalOffset = 20;
+
+        let topLeft = {
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.topLeft.x) + horizontalOffset, 'width'),
+            y: this.adjustOutOfBounds(this.state.topLeft.y,'height')
+        },
+
+        topRight = {
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.topRight.x) + horizontalOffset, 'width'),
+            y: this.adjustOutOfBounds(this.state.topRight.y,'height')
+        },
+
+        bottomLeft = {
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.bottomLeft.x) + horizontalOffset, 'width'),
+            y: this.adjustOutOfBounds(this.state.bottomLeft.y,'height')
+        },
+
+        bottomRight = {
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.bottomRight.x) + horizontalOffset, 'width'),
+            y: this.adjustOutOfBounds(this.state.bottomRight.y,'height')
+        }
+        console.log({bottomRight, height:this.state.viewHeight, width:this.state.viewWidth});
+
         const coordinates = {
-            topLeft: this.viewCoordinatesToImageCoordinates(this.state.topLeft),
+            topLeft: this.viewCoordinatesToImageCoordinates(topLeft),
             topRight: this.viewCoordinatesToImageCoordinates(
-                this.state.topRight,
+                topRight,
             ),
             bottomLeft: this.viewCoordinatesToImageCoordinates(
-                this.state.bottomLeft,
+                bottomLeft,
             ),
             bottomRight: this.viewCoordinatesToImageCoordinates(
-                this.state.bottomRight,
+                bottomRight,
             ),
             height: this.state.height,
             width: this.state.width,
         };
+
         NativeModules.CustomCropManager.crop(
             coordinates,
             this.state.image,
-            (err, res) => this.props.updateImage(res.image, coordinates),
+            (err, res) => this.props.updateImageForViewer(res.image, coordinates),
         );
     }
 
     updateOverlayString() {
+
+        let horizontalOffset = 20; //padding
+        let verticalOffset = 1.5;
+
+        let topLeftX = this.adjustOutOfBounds(this.state.topLeft.x._value,'width') + horizontalOffset
+        let topLeftY = this.adjustOutOfBounds(this.state.topLeft.y._value,'height') + verticalOffset
+        let topRightX = this.adjustOutOfBounds(this.state.topRight.x._value,'width') + horizontalOffset
+        let topRightY = this.adjustOutOfBounds(this.state.topRight.y._value,'height') + verticalOffset
+        let bottomRightX = this.adjustOutOfBounds(this.state.bottomRight.x._value,'width') + horizontalOffset
+        let bottomRightY = this.adjustOutOfBounds(this.state.bottomRight.y._value,'height') + verticalOffset
+        let bottomLeftX = this.adjustOutOfBounds(this.state.bottomLeft.x._value,'width') + horizontalOffset
+        let bottomLeftY = this.adjustOutOfBounds(this.state.bottomLeft.y._value ,'height') + verticalOffset
+        console.log({topLeftX,topLeftY, topRightX,topRightY,bottomRightX,bottomRightY,bottomLeftX,bottomLeftY, height:this.state.viewHeight,width:this.state.viewWidth});
+
         this.setState({
-            overlayPositions: `${this.state.topLeft.x._value},${this.state.topLeft.y._value
-                } ${this.state.topRight.x._value},${this.state.topRight.y._value} ${this.state.bottomRight.x._value
-                },${this.state.bottomRight.y._value} ${this.state.bottomLeft.x._value
-                },${this.state.bottomLeft.y._value}`,
+            overlayPositions: `${topLeftX},${topLeftY} ${topRightX},${topRightY
+            } ${bottomRightX},${bottomRightY} ${bottomLeftX},${bottomLeftY}`,
         });
     }
 
     imageCoordinatesToViewCoordinates(corner) {
         return {
-            x: (corner.x * this.state.viewWidth) / this.state.width,
-            y: (corner.y * this.state.viewHeight) / this.state.height,
+            x: (corner.x),
+            y: (corner.y),
         };
     }
 
     viewCoordinatesToImageCoordinates(corner) {
         return {
-            x: (corner.x._value / this.state.viewWidth) *
+            x: (corner.x / this.state.viewWidth) *
                 this.state.width,
-            y: (corner.y._value / this.state.viewHeight) * this.state.height
+            y: (corner.y / this.state.viewHeight) * this.state.height
         };
     };
 
@@ -179,34 +219,75 @@ class CustomCrop extends Component {
         return (this.props.width / this.state.viewHeight) * 1.20
     }
 
-    render() {
+    adjustHorizontalOffset(x) {
+        x = parseInt(JSON.stringify(x))
+        return x + horizontalPadding /2;
+    }
 
+    adjustOutOfBounds(point,type) {
+
+        if (typeof point == 'object') {
+            point = this.objectToInt(point);
+        }
+
+        if (point < 0) {
+            return 0;
+        }
+
+        if (type == 'height' && point > this.state.viewHeight) {
+            return this.state.viewHeight
+        } else if (type == 'width' && point > this.state.viewWidth) {
+            return this.state.viewWidth;
+        }
+
+        return point;
+    }
+    objectToInt(point) {
+        return parseInt(JSON.stringify(point));
+    }
+
+
+    render() {
         return (
             <View
                 style={{
-                    height: this.state.viewHeight,
-                    width: this.state.viewWidth,
+                    height: "100%",
+                    width: "100%",
                     alignItems: 'center',
                     justifyContent: 'flex-end',
                 }}
+                onLayout={event => {
+                    const layout = event.nativeEvent.layout;
+                    this.setState({
+                        imageVerticalOffset:layout.y
+                    })
+                    this.updateOverlayString()
+                  }}
             >
                 <View
                     style={[
                         s(this.props).cropContainer,
-                        { height: this.state.viewHeight },
+                        { height: "100%" },
                     ]}
                 >
                     <Image
                         style={[
                             s(this.props).image,
-                            { height: this.state.viewHeight },
+                            { height: "100%" },
                         ]}
-                        resizeMode="contain"
+                        resizeMode="stretch"
                         source={{ uri: this.state.image }}
+                        onLayout={event => {
+                            const layout = event.nativeEvent.layout;
+                            this.setState({
+                                viewHeight: layout.height,
+                                viewWidth : layout.width
+                            })
+                          }}
                     />
                     <Svg
-                        height={this.state.viewHeight}
-                        width={this.state.viewWidth}
+                        height={this.state.viewHeight + 3.5}
+                        width={this.adjustHorizontalOffset(this.state.viewWidth + 4)}
                         style={{ position: 'absolute', left: 0, top: 0 }}
                     >
                         <AnimatedPolygon
@@ -221,7 +302,9 @@ class CustomCrop extends Component {
                     <Animated.View
                         {...this.panResponderTopLeft.panHandlers}
                         style={[
-                            this.state.topLeft.getLayout(),
+                            {left: this.adjustHorizontalOffset(this.adjustOutOfBounds(this.state.topLeft.x,'width')),
+                                top: this.adjustOutOfBounds(this.state.topLeft.y,'height')
+                            },
                             s(this.props).handler,
                         ]}
                     >
@@ -234,13 +317,7 @@ class CustomCrop extends Component {
                         <View
                             style={[
                                 s(this.props).handlerRound,
-                                { left: 50, top: 50 },
-                            ]}
-                        />
-                        <View
-                            style={[
-                                s(this.props).handlerRoundOuter,
-                                { left: 30, top: 30 },
+                                { left: 9, top: 11 },
                             ]}
                         />
                     </Animated.View>
@@ -248,7 +325,9 @@ class CustomCrop extends Component {
                         <Animated.View
                             {...this.panResponderTopRight.panHandlers}
                             style={[
-                                this.state.topRight.getLayout(),
+                                {left: this.adjustHorizontalOffset(this.adjustOutOfBounds(this.state.topRight.x,'width')),
+                                    top: this.adjustOutOfBounds(this.state.topRight.y,'height')
+                                },
                                 s(this.props).handler,
                             ]}
                         >
@@ -261,20 +340,16 @@ class CustomCrop extends Component {
                             <View
                                 style={[
                                     s(this.props).handlerRound,
-                                    { left: 51, bottom: 51 },
-                                ]}
-                            />
-                            <View
-                                style={[
-                                    s(this.props).handlerRoundOuter,
-                                    { left: 30, bottom: 30 },
+                                    { left: 9, bottom: 18 },
                                 ]}
                             />
                         </Animated.View>
                         <Animated.View
                             {...this.panResponderBottomLeft.panHandlers}
                             style={[
-                                this.state.bottomLeft.getLayout(),
+                                {left: this.adjustHorizontalOffset(this.adjustOutOfBounds(this.state.bottomLeft.x,'width')),
+                                    top: this.adjustOutOfBounds(this.state.bottomLeft.y,'height')
+                                },
                                 s(this.props).handler,
                             ]}
                         >
@@ -287,13 +362,7 @@ class CustomCrop extends Component {
                             <View
                                 style={[
                                     s(this.props).handlerRound,
-                                    { right: 47, top: 50 },
-                                ]}
-                            />
-                            <View
-                                style={[
-                                    s(this.props).handlerRoundOuter,
-                                    { right: 30, top: 30 },
+                                    { right: 22, top: 12 },
                                 ]}
                             />
                         </Animated.View>
@@ -301,7 +370,9 @@ class CustomCrop extends Component {
                     <Animated.View
                         {...this.panResponderBottomRight.panHandlers}
                         style={[
-                            this.state.bottomRight.getLayout(),
+                            {left: this.adjustHorizontalOffset(this.adjustOutOfBounds(this.state.bottomRight.x,'width')),
+                                top: this.adjustOutOfBounds(this.state.bottomRight.y,'height')
+                            },
                             s(this.props).handler,
                         ]}
                     >
@@ -314,13 +385,7 @@ class CustomCrop extends Component {
                         <View
                             style={[
                                 s(this.props).handlerRound,
-                                { right: 47, bottom: 53 },
-                            ]}
-                        />
-                        <View
-                            style={[
-                                s(this.props).handlerRoundOuter,
-                                { right: 27, bottom: 33 },
+                                { right: 22, bottom: 19 },
                             ]}
                         />
                     </Animated.View>
@@ -339,42 +404,44 @@ const s = (props) => ({
         zIndex: 9999
     },
     handlerRound: {
-        width: 31.2,
+        width: 21.2,
         position: 'absolute',
-        height: 29.6,
+        height: 19.6,
         borderRadius: 100,
-        backgroundColor: props.handlerColor || 'blue',
+        // backgroundColor: props.handlerColor || 'blue',
         zIndex: 9999,
-        borderWidth: 2,
+        borderWidth: 4,
         borderColor: props.borderColor || 'blue'
     },
-    handlerRoundOuter: {
-        width: 70.2,
-        position: 'absolute',
-        height: 70.2,
-        borderRadius: 150,
-        backgroundColor: props.handlerOuterColor || 'blue',
-        zIndex: 9998
-    },
+    // handlerRoundOuter: {
+    //     width: 70.2,
+    //     position: 'absolute',
+    //     height: 70.2,
+    //     borderRadius: 150,
+    //     backgroundColor: props.handlerOuterColor || 'blue',
+    //     zIndex: 9998
+    // },
     image: {
-        width: Dimensions.get('window').width,
-        position: 'absolute',
+        width:"100%"
     },
     handler: {
-        height: 140,
-        width: 140,
+        height: 50,
+        width: 52,
         overflow: 'visible',
-        marginLeft: -70,
-        marginTop: -70,
+        marginLeft: -20,
+        marginTop: -20,
         alignItems: 'center',
         justifyContent: 'center',
         position: 'absolute',
+        // backgroundColor:"teal"
     },
     cropContainer: {
         position: 'absolute',
         left: 0,
-        width: Dimensions.get('window').width,
+        width: "100%",
         top: 0,
+        paddingHorizontal:20,
+        paddingBottom: 160,
     },
 });
 
