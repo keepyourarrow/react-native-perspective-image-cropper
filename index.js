@@ -137,7 +137,7 @@ class CustomCrop extends Component {
         let horizontalOffset = 20;
 
         let topLeft = {
-            x: this.adjustOutOfBounds(this.objectToInt(this.state.topLeft.x) + horizontalOffset, 'width'),
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.topLeft.x) - horizontalOffset, 'width'),
             y: this.adjustOutOfBounds(this.state.topLeft.y,'height')
         },
 
@@ -147,7 +147,7 @@ class CustomCrop extends Component {
         },
 
         bottomLeft = {
-            x: this.adjustOutOfBounds(this.objectToInt(this.state.bottomLeft.x) + horizontalOffset, 'width'),
+            x: this.adjustOutOfBounds(this.objectToInt(this.state.bottomLeft.x) - horizontalOffset, 'width'),
             y: this.adjustOutOfBounds(this.state.bottomLeft.y,'height')
         },
 
